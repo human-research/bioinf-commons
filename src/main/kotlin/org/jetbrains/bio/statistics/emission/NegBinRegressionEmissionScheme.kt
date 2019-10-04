@@ -1,5 +1,6 @@
 package org.jetbrains.bio.statistics.emission
 
+import org.apache.commons.math3.special.Gamma
 import org.apache.commons.math3.util.FastMath
 import org.jetbrains.bio.dataframe.DataFrame
 import org.jetbrains.bio.statistics.MoreMath
@@ -10,6 +11,7 @@ import org.jetbrains.bio.viktor.asF64Array
 import java.util.function.IntPredicate
 import kotlin.math.abs
 import kotlin.math.exp
+import kotlin.math.ln
 import kotlin.random.Random
 
 /**
@@ -21,16 +23,19 @@ import kotlin.random.Random
  */
 class NegBinRegressionEmissionScheme(
         covariateLabels: List<String>,
-        regressionCoefficients: DoubleArray
+        regressionCoefficients: DoubleArray,
+        failures: Double
 ) : IntegerRegressionEmissionScheme(covariateLabels, regressionCoefficients) {
 
-    var failitures = 1.0
+    var failures = failures
+        private set
+    var fLogf = failures*ln(failures)
         private set
     override fun mean(eta: Double) = exp(eta)
     override fun meanDerivative(eta: Double) = exp(eta)
-    override fun meanVariance(mean: Double) = mean + mean*mean/failitures
+    override fun meanVariance(mean: Double) = mean + mean*mean/failures
 
-    override fun sampler(mean: Double) = Sampling.samplePoisson(mean)
+    override fun sampler(mean: Double) = Sampling.sampleNegBinomial(mean, failures)
 
     override fun meanInPlace(eta: F64Array) = eta.apply { expInPlace() }
     override fun meanDerivativeInPlace(eta: F64Array) = eta.apply { expInPlace() }
@@ -48,15 +53,25 @@ class NegBinRegressionEmissionScheme(
         // We don't use the existing Poisson log probability because that saves us one logarithm.
         // We would have to provide lambda = exp(logLambda), and the Poisson implementation would then have to
         // calculate log(lambda) again.
-        val logLambda = getPredictor(df, t)
+        val mean = getPredictor(df, t)
         val y = df.getAsInt(t, df.labels[d])
-        return y * logLambda - MoreMath.factorialLog(y) - FastMath.exp(logLambda)
+        val logMeanPlusFailure = ln(mean + failures)
+
+        return when {
+            failures.isNaN() || y < 0 || y == Integer.MAX_VALUE -> Double.NEGATIVE_INFINITY
+            mean == 0.0 -> if (y == 0) 0.0 else Double.NEGATIVE_INFINITY
+            failures.isInfinite() -> y * ln(y.toFloat()) - mean - MoreMath.factorialLog(y)
+            else -> {
+                Gamma.logGamma(y + failures) - MoreMath.factorialLog(y) + fLogf - failures*logMeanPlusFailure +
+                        y*(ln(mean) - logMeanPlusFailure)
+            }
+        }
     }
 
     override fun update(df: DataFrame, d: Int, weights: F64Array) {
         val X = generateDesignMatrix(df)
         val yInt = df.sliceAsInt(df.labels[d])
-        failitures = NegativeBinomialDistribution.fitNumberOfFailures(yInt, weights, 1.0, failitures)
+        failures = NegativeBinomialDistribution.fitNumberOfFailures(yInt, weights, 1.0, failures)
         val y = DoubleArray (yInt.size) {yInt[it].toDouble()}.asF64Array()
         val iterMax = 5
         val tol = 1e-8
@@ -73,5 +88,6 @@ class NegBinRegressionEmissionScheme(
             beta0 = beta1
         }
         regressionCoefficients = beta1
+        fLogf = failures*ln(failures)
     }
 }
