@@ -71,7 +71,6 @@ class NegBinRegressionEmissionScheme(
     override fun update(df: DataFrame, d: Int, weights: F64Array) {
         val X = generateDesignMatrix(df)
         val yInt = df.sliceAsInt(df.labels[d])
-        failures = NegativeBinomialDistribution.fitNumberOfFailures(yInt, weights, 1.0, failures)
         val y = DoubleArray (yInt.size) {yInt[it].toDouble()}.asF64Array()
         val iterMax = 5
         val tol = 1e-8
@@ -79,6 +78,7 @@ class NegBinRegressionEmissionScheme(
         var beta1 = regressionCoefficients
         for (i in 0 until iterMax) {
             val eta = WLSRegression.calculateEta(X, beta0)
+            failures = NegativeBinomialDistribution.fitNumberOfFailures(y, weights, meanInPlace(eta.copy()), failures)
             val (z, W) = zW(y, eta)
             W *= weights
             beta1 = WLSRegression.calculateBeta(X, z, W)
@@ -90,4 +90,20 @@ class NegBinRegressionEmissionScheme(
         regressionCoefficients = beta1
         fLogf = failures*ln(failures)
     }
+}
+
+
+fun main(args: Array<String>) {
+    val covar = DataFrame()
+            .with("y", IntArray(1000000))
+            .with("x1", DoubleArray(1000000) { Random.nextDouble(0.0, 1.0) })
+            .with("x2", DoubleArray(1000000) { Random.nextDouble(0.0, 1.0) })
+
+    val regrES = NegBinRegressionEmissionScheme(listOf("x1", "x2"), doubleArrayOf(1.0, 4.0, -2.0), 4.0)
+    val pred = IntPredicate {true}
+
+    regrES.sample(covar, 0, pred)
+    println("Update")
+    regrES.update(covar, 0, DoubleArray(1000000, {1.0}).asF64Array())
+    print("Beta: ${regrES.regressionCoefficients.asList()}")
 }

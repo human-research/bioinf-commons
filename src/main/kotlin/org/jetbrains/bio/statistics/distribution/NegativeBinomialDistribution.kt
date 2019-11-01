@@ -17,6 +17,7 @@ import org.jetbrains.bio.viktor.KahanSum
 import org.jetbrains.bio.viktor.asF64Array
 import java.util.*
 import java.util.stream.DoubleStream
+import kotlin.math.ln
 
 /**
  * Implementation of a Negative Binomial distribution.
@@ -212,6 +213,20 @@ class NegativeBinomialDistribution(rng: RandomGenerator,
             return a
         }
 
+        fun diGammaInPlace(eta: F64Array): F64Array {
+            for(i in 0 until eta.size) {
+                eta[i] = Gamma.digamma(eta[i])
+            }
+            return eta
+        }
+
+        fun triGammaInPlace(eta: F64Array): F64Array {
+            for(i in 0 until eta.size) {
+                eta[i] = Gamma.trigamma(eta[i])
+            }
+            return eta
+        }
+
         /**
          * NegativeBinomial fit based on
          * http://research.microsoft.com/en-us/um/people/minka/papers/minka-gamma.pdf
@@ -270,6 +285,45 @@ class NegativeBinomialDistribution(rng: RandomGenerator,
                 a = newA
             }
 
+            return a
+        }
+
+        fun fitNumberOfFailures(values: F64Array,
+                                  weights: F64Array,
+                                  mean: F64Array,
+                                  failures: Double): Double {
+
+            if (failures.isInfinite() || mean.equals(0)) {
+                /* this is already Poisson or singular distribution, can't be optimized */
+                return failures
+            }
+
+            var a = failures // shape
+            for (i in 0..99) {
+                val fDeriv = weights.times(diGammaInPlace(values.plus(a))).sum()
+                -weights.times(Gamma.digamma(a)).sum()
+                -weights.times(mean.div(a).plus(1.0).apply { logInPlace() }).sum()
+                -weights
+                        .times(values.plus(a))
+                        .times(mean.div(a * a)
+                                .div(mean.times(-a).plus(1.0)))
+                        .sum()
+                -weights.times(values).times(ln(a)).sum()
+                val fSecDeriv = weights.times(triGammaInPlace(values.plus(a))).sum()
+                -weights.times(Gamma.trigamma(a)).sum()
+                -weights.div(mean.times(-a).plus(1.0)).sum()
+                -weights
+                        .times(values.plus(a))
+                        .times(mean.div(a * a * a).times(mean.div(a).minus(2.0)))
+                        .div(mean.div(-a).plus(1.0))
+                        .div(mean.div(-a).plus(1.0))
+                        .sum()
+                val aNext = 1 / (1 / a + fDeriv / (a * a * fSecDeriv))
+                if (Math.abs(a - aNext) < 1E-6 * a) {
+                    return aNext
+                }
+                a = aNext
+            }
             return a
         }
 
