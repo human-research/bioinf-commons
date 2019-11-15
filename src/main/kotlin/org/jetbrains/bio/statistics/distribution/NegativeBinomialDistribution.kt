@@ -227,6 +227,12 @@ class NegativeBinomialDistribution(rng: RandomGenerator,
             return eta
         }
 
+        fun pow2InPlace(eta: F64Array): F64Array {
+            for(i in 0 until eta.size) {
+                eta[i] = eta[i]*eta[i]
+            }
+            return eta
+        }
         /**
          * NegativeBinomial fit based on
          * http://research.microsoft.com/en-us/um/people/minka/papers/minka-gamma.pdf
@@ -300,24 +306,21 @@ class NegativeBinomialDistribution(rng: RandomGenerator,
 
             var a = failures // shape
             for (i in 0..99) {
-                val fDeriv = weights.times(diGammaInPlace(values.plus(a))).sum()
-                -weights.times(Gamma.digamma(a)).sum()
-                -weights.times(mean.div(a).plus(1.0).apply { logInPlace() }).sum()
-                -weights
-                        .times(values.plus(a))
-                        .times(mean.div(a * a)
-                                .div(mean.times(-a).plus(1.0)))
+                val fDeriv = weights.times((diGammaInPlace(values.plus(a)) -
+                        Gamma.digamma(a) -
+                        (mean + a).apply { logInPlace() } -
+                        (values+a).div(mean + a)) + ln(a) + 1.0)
                         .sum()
-                -weights.times(values).times(ln(a)).sum()
-                val fSecDeriv = weights.times(triGammaInPlace(values.plus(a))).sum()
-                -weights.times(Gamma.trigamma(a)).sum()
-                -weights.div(mean.times(-a).plus(1.0)).sum()
-                -weights
-                        .times(values.plus(a))
-                        .times(mean.div(a * a * a).times(mean.div(a).minus(2.0)))
-                        .div(mean.div(-a).plus(1.0))
-                        .div(mean.div(-a).plus(1.0))
+
+                val fSecDeriv = (weights
+                        .times((triGammaInPlace(values.plus(a)) -
+                            Gamma.trigamma(a) -
+                            ((values + a).div((mean + a))) -
+                            ((mean + a).div(pow2InPlace(mean+a))) +
+                            (1.0/a))) -
+                        weights.div(mean + a))
                         .sum()
+
                 val aNext = 1 / (1 / a + fDeriv / (a * a * fSecDeriv))
                 if (Math.abs(a - aNext) < 1E-6 * a) {
                     return aNext
