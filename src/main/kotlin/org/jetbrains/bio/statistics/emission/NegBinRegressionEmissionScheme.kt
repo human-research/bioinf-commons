@@ -99,11 +99,13 @@ fun main(args: Array<String>) {
             .with("x1", DoubleArray(1000000) { Random.nextDouble(0.0, 1.0) })
             .with("x2", DoubleArray(1000000) { Random.nextDouble(0.0, 1.0) })
 
-    val regrES = NegBinRegressionEmissionScheme(listOf("x1", "x2"), doubleArrayOf(1.0, 4.0, -2.0), 4.0)
+    val regrES = NegBinRegressionEmissionScheme(listOf("x1", "x2"), doubleArrayOf(1.0, -2.0, 3.0), 4.0)
     val pred = IntPredicate {true}
 
     regrES.sample(covar, 0, pred)
+    val regrES2 = NegBinRegressionEmissionScheme(listOf("x1", "x2"), doubleArrayOf(0.5, 0.5, 0.5), 7.0)
     println("Update")
-    regrES.update(covar, 0, DoubleArray(1000000, {1.0}).asF64Array())
-    print("Beta: ${regrES.regressionCoefficients.asList()}")
+    regrES2.update(covar, 0, DoubleArray(1000000, {1.0}).asF64Array())
+    println("Beta: ${regrES2.regressionCoefficients.asList()}")
+    println("Failures: ${regrES2.failures}")
 }

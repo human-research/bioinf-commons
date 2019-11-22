@@ -312,13 +312,13 @@ class NegativeBinomialDistribution(rng: RandomGenerator,
                         (values+a).div(mean + a)) + ln(a) + 1.0)
                         .sum()
 
-                val fSecDeriv = (weights
-                        .times((triGammaInPlace(values.plus(a)) -
+                val fSecDeriv = (weights *
+                        ((triGammaInPlace(values.plus(a)) -
                             Gamma.trigamma(a) -
-                            ((values + a).div((mean + a))) -
-                            ((mean + a).div(pow2InPlace(mean+a))) +
+                            ((values + a)/((mean + a))) -
+                            ((mean + a)/((mean+a).apply { timesAssign(mean+a)})) +
                             (1.0/a))) -
-                        weights.div(mean + a))
+                        weights/(mean + a))
                         .sum()
 
                 val aNext = 1 / (1 / a + fDeriv / (a * a * fSecDeriv))
