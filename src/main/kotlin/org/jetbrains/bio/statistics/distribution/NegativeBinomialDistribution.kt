@@ -306,23 +306,22 @@ class NegativeBinomialDistribution(rng: RandomGenerator,
 
             var a = failures // shape
             for (i in 0..99) {
-                val fDeriv = weights.times((diGammaInPlace(values.plus(a)) -
+                val fDeriv = (weights * (diGammaInPlace(values + a) -
                         Gamma.digamma(a) -
                         (mean + a).apply { logInPlace() } -
-                        (values+a).div(mean + a)) + ln(a) + 1.0)
+                        (values + a) / (mean + a) + ln(a) + 1.0))
                         .sum()
 
                 val fSecDeriv = (weights *
-                        ((triGammaInPlace(values.plus(a)) -
-                            Gamma.trigamma(a) -
-                            ((values + a)/((mean + a))) -
-                            ((mean + a)/((mean+a).apply { timesAssign(mean+a)})) +
-                            (1.0/a))) -
-                        weights/(mean + a))
+                        (triGammaInPlace(values + a) -
+                            Gamma.trigamma(a) +
+                            ((values + a)/((mean + a).apply { timesAssign(mean + a)})) +
+                            (1.0 / a)) -
+                        weights * 2.0 / (mean + a))
                         .sum()
 
                 val aNext = 1 / (1 / a + fDeriv / (a * a * fSecDeriv))
-                if (Math.abs(a - aNext) < 1E-6 * a) {
+                if (Math.abs(a - aNext) < 1E-4) {
                     return aNext
                 }
                 a = aNext
