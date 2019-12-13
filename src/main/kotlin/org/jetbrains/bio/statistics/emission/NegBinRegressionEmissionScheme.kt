@@ -39,7 +39,7 @@ class NegBinRegressionEmissionScheme(
 
     override fun meanInPlace(eta: F64Array) = eta.apply { expInPlace() }
     override fun meanDerivativeInPlace(eta: F64Array) = eta.apply { expInPlace() }
-    override fun meanVarianceInPlace(mean: F64Array) = mean
+    override fun meanVarianceInPlace(mean: F64Array) = mean + mean*mean/failures
 
     override fun zW(y: F64Array, eta: F64Array): Pair<F64Array, F64Array> {
         // Since h(η) = h'(η) = var(h(η)), we can skip h'(η) and var(h(η)) calculations and simplify W:
@@ -72,7 +72,7 @@ class NegBinRegressionEmissionScheme(
         val X = generateDesignMatrix(df)
         val yInt = df.sliceAsInt(df.labels[d])
         val y = DoubleArray (yInt.size) {yInt[it].toDouble()}.asF64Array()
-        val iterMax = 5
+        val iterMax = 100
         val tol = 1e-8
         var beta0 = regressionCoefficients
         var beta1 = regressionCoefficients
@@ -99,11 +99,11 @@ fun main(args: Array<String>) {
             .with("x1", DoubleArray(1000000) { Random.nextDouble(0.0, 1.0) })
             .with("x2", DoubleArray(1000000) { Random.nextDouble(0.0, 1.0) })
 
-    val regrES = NegBinRegressionEmissionScheme(listOf("x1", "x2"), doubleArrayOf(1.0, -2.0, 3.0), 4.0)
+    val regrES = NegBinRegressionEmissionScheme(listOf("x1", "x2"), doubleArrayOf(1.0, -2.0, 3.0), 7.0)
     val pred = IntPredicate {true}
 
     regrES.sample(covar, 0, pred)
-    val regrES2 = NegBinRegressionEmissionScheme(listOf("x1", "x2"), doubleArrayOf(0.5, 0.5, 0.5), 7.0)
+    val regrES2 = NegBinRegressionEmissionScheme(listOf("x1", "x2"), doubleArrayOf(0.5, 0.5, 0.5), 4.0)
     println("Update")
     regrES2.update(covar, 0, DoubleArray(1000000, {1.0}).asF64Array())
     println("Beta: ${regrES2.regressionCoefficients.asList()}")

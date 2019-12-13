@@ -17,6 +17,7 @@ import org.jetbrains.bio.viktor.KahanSum
 import org.jetbrains.bio.viktor.asF64Array
 import java.util.*
 import java.util.stream.DoubleStream
+import kotlin.math.abs
 import kotlin.math.ln
 
 /**
@@ -303,15 +304,15 @@ class NegativeBinomialDistribution(rng: RandomGenerator,
                 /* this is already Poisson or singular distribution, can't be optimized */
                 return failures
             }
-
-            var a = failures // shape
+            var a = weights.sum()/(weights*(values/mean - 1.0)*(values/mean - 1.0)).sum() // shape
+            //var a = 1.0
             for (i in 0..99) {
+                a = abs(a)
                 val fDeriv = (weights * (diGammaInPlace(values + a) -
                         Gamma.digamma(a) -
                         (mean + a).apply { logInPlace() } -
                         (values + a) / (mean + a) + ln(a) + 1.0))
                         .sum()
-
                 val fSecDeriv = (weights *
                         (triGammaInPlace(values + a) -
                             Gamma.trigamma(a) +
@@ -320,8 +321,9 @@ class NegativeBinomialDistribution(rng: RandomGenerator,
                         weights * 2.0 / (mean + a))
                         .sum()
 
-                val aNext = 1 / (1 / a + fDeriv / (a * a * fSecDeriv))
+                val aNext = a - fDeriv/fSecDeriv
                 if (Math.abs(a - aNext) < 1E-4) {
+                    println(aNext)
                     return aNext
                 }
                 a = aNext
