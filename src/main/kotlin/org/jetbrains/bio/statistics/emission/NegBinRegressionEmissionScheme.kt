@@ -82,9 +82,9 @@ class NegBinRegressionEmissionScheme(
             val (z, W) = zW(y, eta)
             W *= weights
             beta1 = WLSRegression.calculateBeta(X, z, W)
-            if ((beta1.zip(beta0) { a, b -> abs(a - b) }).sum() < tol) {
-                break
-            }
+//            if ((beta1.zip(beta0) { a, b -> abs(a - b) }).sum() < tol) {
+//                break
+//            }
             beta0 = beta1
         }
         regressionCoefficients = beta1
@@ -95,17 +95,21 @@ class NegBinRegressionEmissionScheme(
 
 fun main(args: Array<String>) {
     val covar = DataFrame()
-            .with("y", IntArray(1000000))
-            .with("x1", DoubleArray(1000000) { Random.nextDouble(0.0, 1.0) })
-            .with("x2", DoubleArray(1000000) { Random.nextDouble(0.0, 1.0) })
+            .with("y", IntArray(100000))
+            .with("x1", DoubleArray(100000) { Random.nextDouble(0.0, 1.0) })
+            .with("x2", DoubleArray(100000) { Random.nextDouble(0.0, 1.0) })
 
     val regrES = NegBinRegressionEmissionScheme(listOf("x1", "x2"), doubleArrayOf(1.0, -2.0, 3.0), 7.0)
-    val pred = IntPredicate {true}
+    //val pred = IntPredicate { it -> it % 2 == 0 }
+    regrES.sample(covar, 0, IntPredicate { it % 2 == 0 })
+    //regrES.sample(covar, 0, IntPredicate { true })
+    val regrES1 = NegBinRegressionEmissionScheme(listOf("x1", "x2"), doubleArrayOf(12.0, -4.0, -3.0), 7.0)
+    regrES1.sample(covar, 0, IntPredicate { it % 2 > 0 })
 
-    regrES.sample(covar, 0, pred)
     val regrES2 = NegBinRegressionEmissionScheme(listOf("x1", "x2"), doubleArrayOf(0.5, 0.5, 0.5), 4.0)
     println("Update")
-    regrES2.update(covar, 0, DoubleArray(1000000, {1.0}).asF64Array())
+    val weights = DoubleArray(100000) {if (it % 2 == 0) 0.999 else 0.001}.asF64Array()
+    regrES2.update(covar, 0, weights)
     println("Beta: ${regrES2.regressionCoefficients.asList()}")
     println("Failures: ${regrES2.failures}")
 }
