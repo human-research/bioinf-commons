@@ -171,9 +171,6 @@ class NegativeBinomialDistribution(rng: RandomGenerator,
          * Creates Negative binomial distribution from MLE of parameters.
          *
          * @param values  sample to estimate parameters from.
-         * @param maxIter maximum number of iterations of Newton-Raphson method
-         * when estimating number of failures.
-         * @param epsilon convergence threshold.
          * @return Negative binomial distribution.
          */
         fun of(values: IntArray): NegativeBinomialDistribution {
@@ -188,7 +185,7 @@ class NegativeBinomialDistribution(rng: RandomGenerator,
                     mean,
                     estimateFailuresUsingMoments(mean, sd * sd))
 
-            return NegativeBinomialDistribution.usingMean(mean, failures)
+            return usingMean(mean, failures)
         }
 
         /** Gamma fit based on
@@ -214,26 +211,20 @@ class NegativeBinomialDistribution(rng: RandomGenerator,
             return a
         }
 
-        fun diGammaInPlace(eta: F64Array): F64Array {
-            for(i in 0 until eta.size) {
+        private fun diGammaInPlace(eta: F64Array): F64Array {
+            for (i in 0 until eta.size) {
                 eta[i] = Gamma.digamma(eta[i])
             }
             return eta
         }
 
-        fun triGammaInPlace(eta: F64Array): F64Array {
-            for(i in 0 until eta.size) {
+        private fun triGammaInPlace(eta: F64Array): F64Array {
+            for (i in 0 until eta.size) {
                 eta[i] = Gamma.trigamma(eta[i])
             }
             return eta
         }
 
-        fun pow2InPlace(eta: F64Array): F64Array {
-            for(i in 0 until eta.size) {
-                eta[i] = eta[i]*eta[i]
-            }
-            return eta
-        }
         /**
          * NegativeBinomial fit based on
          * http://research.microsoft.com/en-us/um/people/minka/papers/minka-gamma.pdf
@@ -286,7 +277,7 @@ class NegativeBinomialDistribution(rng: RandomGenerator,
                 val newMean = lambdaExpectationSum.result() / sum
                 val newMeanLog = logLambdaExpectationSum.result() / sum
                 val newA = fitGamma(newMeanLog, newMean, a)
-                if (newA.isNaN() || Math.abs(a - newA) < a * 1E-6) {
+                if (newA.isNaN() || abs(a - newA) < a * 1E-6) {
                     return a
                 }
                 a = newA
