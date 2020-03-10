@@ -63,8 +63,9 @@ object Sampling {
     }
 
     fun sampleNegBinomial(mean: Double, failures: Double): Int {
-        require(mean > 0 && failures > 0 ) {"mean and failures must be > 0"}
-        val rate = sampleGamma(failures, failures/mean)
+        require(mean >= 0 && failures > 0) {"mean and failures must be > 0"}
+        if (mean == 0.0) return 0
+        val rate = sampleGamma(failures, failures / mean)
         return samplePoisson(rate)
     }
 
